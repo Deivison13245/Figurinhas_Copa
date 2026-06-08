@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
    
     const inputName = document.getElementById('player-name');
     const selectPosition = document.getElementById('player-position');
+    const selectStyle = document.getElementById('sticker-style');
     const fileInput = document.getElementById('file-input');
     const dropZone = document.getElementById('drop-zone');
    
@@ -30,6 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let imgScale = 1.0;
     let imgX = 0;
     let imgY = 0;
+    let stickerStyle = 'normal';
+    let foilPhase = 0;
+    let foilAnimationId = null;
  
     // Pré-carregamento de Ativos Visuais Oficiais
     const logoWorldCup = new Image();
@@ -45,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     stadiumBackground.onload = renderSticker;
  
     // Inicialização do Canvas Base
+    updateFoilAnimation();
     renderSticker();
  
     // ==========================================================================
@@ -52,6 +57,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================================
     inputName.addEventListener('input', renderSticker);
     selectPosition.addEventListener('change', renderSticker);
+    selectStyle.addEventListener('change', (e) => {
+        stickerStyle = e.target.value;
+        document.documentElement.classList.toggle('theme-legendary', stickerStyle === 'legendary');
+        updateFoilAnimation();
+        renderSticker();
+    });
     dropZone.addEventListener('click', () => fileInput.click());
    
     dropZone.addEventListener('dragover', (e) => {
@@ -132,6 +143,71 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================================
     // MOTOR DE RENDERIZAÇÃO DO CANVAS
     // ==========================================================================
+    function updateFoilAnimation() {
+        if (foilAnimationId) {
+            cancelAnimationFrame(foilAnimationId);
+            foilAnimationId = null;
+        }
+
+        if (stickerStyle === 'legendary') {
+            const animate = () => {
+                foilPhase = (foilPhase + 0.012) % 1;
+                renderSticker();
+                foilAnimationId = requestAnimationFrame(animate);
+            };
+            foilAnimationId = requestAnimationFrame(animate);
+        }
+    }
+
+    function drawFoilOverlay() {
+        if (stickerStyle !== 'legendary') return;
+
+        const W = canvas.width;
+        const H = canvas.height;
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.35;
+
+        const foil = ctx.createLinearGradient(0, -H * 0.2 + H * foilPhase, W, H * 1.2 + H * foilPhase);
+        foil.addColorStop(0, 'rgba(139, 92, 246, 0.85)');
+        foil.addColorStop(0.25, 'rgba(251, 191, 36, 0.75)');
+        foil.addColorStop(0.5, 'rgba(56, 189, 248, 0.65)');
+        foil.addColorStop(0.75, 'rgba(192, 132, 252, 0.80)');
+        foil.addColorStop(1, 'rgba(255, 255, 255, 0.35)');
+
+        ctx.fillStyle = foil;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.globalAlpha = 0.55;
+        ctx.lineWidth = 2;
+        const stripeGrad = ctx.createLinearGradient(0, 0, W, H);
+        stripeGrad.addColorStop(0, 'rgba(255,255,255,0.15)');
+        stripeGrad.addColorStop(0.5, 'rgba(255,255,255,0.55)');
+        stripeGrad.addColorStop(1, 'rgba(255,255,255,0.15)');
+        ctx.strokeStyle = stripeGrad;
+
+        for (let i = -2; i < 4; i++) {
+            ctx.beginPath();
+            ctx.moveTo(-50 + i * 150, 0);
+            ctx.lineTo(120 + i * 150, H);
+            ctx.stroke();
+        }
+
+        ctx.globalAlpha = 0.35;
+        const sparkleCount = 8;
+        for (let i = 0; i < sparkleCount; i++) {
+            const x = (i * 98 + (foilPhase * 70)) % (W - 40) + 20;
+            const y = (i * 130 + H * foilPhase) % (H - 60) + 30;
+            ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.9)' : 'rgba(251,191,36,0.85)';
+            ctx.beginPath();
+            ctx.arc(x, y, 3 + (i % 3), 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
     function renderSticker() {
         const W = canvas.width;  // 800
         const H = canvas.height; // 1100
@@ -189,6 +265,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         ctx.restore();
  
+        if (stickerStyle === 'legendary') {
+            drawFoilOverlay();
+        }
+
         // 2. RECORTAR E DESENHAR A FOTO DO JOGADOR
         ctx.save();
         const pad = 45;
@@ -222,17 +302,47 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.restore();
  
         // 3. MOLDURAS E BORDAS DO CARD
-        ctx.lineWidth = 6;
-        ctx.strokeStyle = '#ffffff';
-        ctx.strokeRect(15, 15, W - 30, H - 30);
- 
-        ctx.lineWidth = 14;
-        ctx.strokeStyle = '#ffdf00';
-        ctx.strokeRect(25, 25, W - 50, H - 50);
- 
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = '#008751';
-        ctx.strokeRect(34, 34, W - 68, H - 68);
+        if (stickerStyle === 'legendary') {
+            ctx.save();
+            const holoOuter = ctx.createLinearGradient(0, 0, W, H);
+            holoOuter.addColorStop(0, '#8b5cf6');
+            holoOuter.addColorStop(0.35, '#f5d547');
+            holoOuter.addColorStop(0.7, '#22d3ee');
+            holoOuter.addColorStop(1, '#c084fc');
+
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = holoOuter;
+            ctx.strokeRect(12, 12, W - 24, H - 24);
+
+            ctx.lineWidth = 4;
+            ctx.setLineDash([8, 6]);
+            ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+            ctx.strokeRect(28, 28, W - 56, H - 56);
+            ctx.setLineDash([]);
+            ctx.restore();
+
+            ctx.save();
+            ctx.globalAlpha = 0.18;
+            const holoGlow = ctx.createRadialGradient(W / 2, H * 0.18, 20, W / 2, H * 0.18, 420);
+            holoGlow.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+            holoGlow.addColorStop(0.35, 'rgba(245, 213, 71, 0.35)');
+            holoGlow.addColorStop(1, 'rgba(139, 92, 246, 0)');
+            ctx.fillStyle = holoGlow;
+            ctx.fillRect(0, 0, W, H);
+            ctx.restore();
+        } else {
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#ffffff';
+            ctx.strokeRect(15, 15, W - 30, H - 30);
+
+            ctx.lineWidth = 14;
+            ctx.strokeStyle = '#ffdf00';
+            ctx.strokeRect(25, 25, W - 50, H - 50);
+
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#008751';
+            ctx.strokeRect(34, 34, W - 68, H - 68);
+        }
  
         // 4. CABEÇALHO COM LOGOTIPO OFICIAL DA COPA DO MUNDO NO CANTO SUPERIOR ESQUERDO
         const logoX = 52;
